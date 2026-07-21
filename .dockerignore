@@ -1,0 +1,9 @@
+# Keep the image tiny — only server.py + index.html are needed.
+.git
+.github
+*.md
+Caddyfile
+game-vote.service
+votes.json
+votes*.json
+*.tmp

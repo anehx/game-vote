@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8" />
+<title>Crew server vote</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+
+<style>
+  :root{
+    --bg:#10141a; --panel:#171d26; --panel2:#1e2731; --line:#2a3542;
+    --ink:#e8edf3; --muted:#8593a4; --muted2:#5f6c7c;
+    --amber:#f6a935; --teal:#34d1bf; --pro:#57cf85; --con:#f2846b;
+    --disp:'Space Grotesk',system-ui,sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+    --body:'Inter',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body)}
+  .wrap{max-width:880px;margin:0 auto;padding:26px 18px 60px}
+
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);display:flex;align-items:center;gap:8px}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--teal);box-shadow:0 0 10px var(--teal);animation:pulse 2.4s ease-in-out infinite}
+  .eyebrow .dot.off{background:var(--con);box-shadow:0 0 10px var(--con)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  h1{font-family:var(--disp);font-weight:700;font-size:clamp(28px,5vw,42px);line-height:1.02;margin:12px 0 6px;letter-spacing:-.02em}
+  h1 span{color:var(--amber)}
+  .sub{color:var(--muted);font-size:15px;max-width:62ch;line-height:1.5}
+
+  .strip{display:flex;flex-wrap:wrap;gap:10px;margin:20px 0 8px;font-family:var(--mono);font-size:12.5px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 12px;color:var(--muted)}
+  .stat b{color:var(--ink);font-weight:700}
+  .stat .live{color:var(--teal)} .stat .live.off{color:var(--con)}
+
+  .idbar{display:flex;gap:10px;align-items:center;margin:14px 0 14px;flex-wrap:wrap}
+  .idbar label{font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:.05em}
+  .idbar input{background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--ink);
+    font-family:var(--body);font-size:14px;padding:9px 12px;min-width:180px;outline:none}
+  .idbar input:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(246,169,53,.15)}
+  .idbar input.need{border-color:var(--con);box-shadow:0 0 0 3px rgba(242,132,107,.18)}
+  .idbar .hint{font-family:var(--mono);font-size:11.5px;color:var(--con)}
+
+  .ballot{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap;margin:0 0 22px;padding:12px 12px;
+    background:var(--panel);border:1px solid var(--line);border-radius:12px}
+  .ballot .bl{font-family:var(--mono);font-size:11px;color:var(--muted2);letter-spacing:.1em;text-transform:uppercase;align-self:center;margin-right:2px}
+  .slot{flex:1;min-width:150px;display:flex;align-items:center;gap:9px;background:var(--panel2);border:1px dashed var(--line);border-radius:8px;padding:8px 11px}
+  .slot.filled{border-style:solid;border-color:rgba(246,169,53,.4)}
+  .slot .r{font-family:var(--mono);font-weight:700;font-size:13px;color:var(--amber);flex:none}
+  .slot .g{font-family:var(--disp);font-weight:600;font-size:14px;color:var(--ink);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .slot .g.empty{color:var(--muted2);font-family:var(--mono);font-weight:400;font-size:12.5px}
+  .slot .x{cursor:pointer;color:var(--muted);font-family:var(--mono);border:none;background:none;font-size:15px;line-height:1;padding:0 2px}
+  .slot .x:hover{color:var(--con)}
+  .ballot .clr{align-self:center;font-family:var(--mono);font-size:11.5px;color:var(--muted);background:none;border:none;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+  .ballot .clr:hover{color:var(--con)}
+
+  .card{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 16px 14px 18px;margin-bottom:12px;overflow:hidden;transition:border-color .2s}
+  .card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--line);transition:background .25s}
+  .card.mine{border-color:rgba(246,169,53,.5)} .card.mine::before{background:var(--amber)}
+  .card.leader::before{background:var(--teal)}
+  .top{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .led{width:9px;height:9px;border-radius:50%;background:#33404e;flex:none;transition:.25s}
+  .card.mine .led{background:var(--amber);box-shadow:0 0 9px var(--amber)}
+  .name{font-family:var(--disp);font-weight:600;font-size:19px;letter-spacing:-.01em}
+  /* unified rating badges: [LABEL value], value tinted by quality tier */
+  .rate{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-weight:700;font-size:11px;border:1px solid var(--line);border-radius:5px;padding:2px 7px;flex:none;background:var(--panel2);white-space:nowrap;line-height:1.4}
+  .rate i{font-size:11px;color:var(--muted2)}  /* FontAwesome source icon; value keeps the tier tint */
+  .rate.hi{color:#6dc849} .rate.mid{color:#f6c343} .rate.lo{color:#f2846b} .rate.na{color:var(--muted)}
+  a.rate{text-decoration:none;cursor:pointer;transition:border-color .15s,background .15s}
+  a.rate:hover{border-color:var(--muted2);background:var(--panel)}
+  .rgt{margin-left:auto;display:inline-flex;align-items:center;gap:9px}  /* pushes leading/your to the card's right edge */
+  .tag{font-family:var(--mono);font-size:11px;color:var(--muted2);letter-spacing:.04em;text-transform:uppercase;width:100%;margin-top:2px}
+  .badge{font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.08em;padding:3px 8px;border-radius:20px;text-transform:uppercase;flex:none}
+  .badge.lead{color:var(--teal);border:1px solid rgba(52,209,191,.4);background:rgba(52,209,191,.08)}
+
+  .pc{display:grid;grid-template-columns:1fr 1fr;gap:6px 22px;margin:11px 0 4px}
+  @media(max-width:560px){.pc{grid-template-columns:1fr}}
+  .pc li{list-style:none;font-size:13.2px;line-height:1.45;color:#c7d0da;display:flex;gap:8px;padding:1px 0}
+  .pc .m{font-family:var(--mono);flex:none;font-weight:700;font-size:12px;line-height:1.5}
+  .pro .m{color:var(--pro)} .con .m{color:var(--con)}
+  ul{margin:0;padding:0}
+
+  .row{display:flex;align-items:center;gap:14px;margin-top:12px}
+  .meter{flex:1;height:26px;background:var(--panel2);border-radius:7px;position:relative;overflow:hidden;border:1px solid var(--line)}
+  .fill{position:absolute;left:0;top:0;bottom:0;width:0;background:linear-gradient(90deg,rgba(246,169,53,.85),rgba(246,169,53,.45));border-radius:6px;transition:width .7s cubic-bezier(.2,.7,.2,1)}
+  .card.leader .fill{background:linear-gradient(90deg,rgba(52,209,191,.9),rgba(52,209,191,.45))}
+  .mval{position:absolute;right:10px;top:0;bottom:0;display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;font-weight:700;color:var(--ink);text-shadow:0 1px 2px rgba(0,0,0,.5)}
+  .mval .firsts{color:var(--muted);font-weight:500}
+  .btn{flex:none;font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.02em;border:1px solid var(--line);background:var(--panel2);color:var(--ink);padding:9px 15px;border-radius:8px;cursor:pointer;transition:.15s;min-width:104px;text-align:center}
+  .btn:hover:not(:disabled){border-color:var(--amber);color:var(--amber)}
+  .btn:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+  .btn.on{background:var(--amber);border-color:var(--amber);color:#1a1205}
+  .btn.on:hover{color:#1a1205;filter:brightness(1.05)} .btn:disabled{opacity:.4;cursor:not-allowed}
+  .actions{display:flex;gap:8px;flex:none}
+  .btn.mini{min-width:92px;padding:9px 13px}
+  .btn.liked{background:var(--pro);border-color:var(--pro);color:#08160d}
+  .btn.liked:hover{color:#08160d;filter:brightness(1.05)}
+  .btn.supered{background:var(--teal);border-color:var(--teal);color:#04201d}
+  .btn.supered:hover{color:#04201d;filter:brightness(1.05)}
+  .ballot .sum{font-family:var(--mono);font-size:12.5px;color:var(--ink);align-self:center}
+  .ballot .sum.empty{color:var(--muted2)}
+
+  /* view toggle */
+  .viewtabs{display:flex;gap:8px;margin:2px 0 16px}
+  .vtab{font-family:var(--mono);font-size:12.5px;font-weight:700;letter-spacing:.03em;color:var(--muted);
+    background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 14px;cursor:pointer;transition:.15s}
+  .vtab:hover{color:var(--ink);border-color:var(--muted2)}
+  .vtab.on{color:var(--amber);border-color:var(--amber);background:rgba(246,169,53,.08)}
+  .vtab:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+  /* swipe deck */
+  .swipe-progress{font-family:var(--mono);font-size:12px;color:var(--muted);margin:0 0 12px;display:flex;gap:14px;flex-wrap:wrap}
+  .swipe-progress b{color:var(--ink)}
+  .deckstack{position:relative;touch-action:none;user-select:none;-webkit-user-select:none}
+  .swcard{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:16px;
+    padding:18px 18px 16px 20px;box-shadow:0 14px 34px rgba(0,0,0,.4);cursor:grab;will-change:transform}
+  .swcard:active{cursor:grabbing}
+  .swhint{position:absolute;top:14px;font-family:var(--disp);font-weight:700;font-size:24px;letter-spacing:.06em;
+    padding:3px 12px;border-radius:8px;border:3px solid;opacity:0;transition:opacity .08s;pointer-events:none;text-transform:uppercase;z-index:2}
+  .swhint.like{right:16px;color:var(--pro);border-color:var(--pro);transform:rotate(11deg)}
+  .swhint.pass{left:16px;color:var(--con);border-color:var(--con);transform:rotate(-11deg)}
+  .swhint.super{left:50%;top:8px;color:var(--teal);border-color:var(--teal);transform:translateX(-50%)}
+  .swmeta{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:9px;min-height:14px}
+  .swactions{display:flex;justify-content:center;gap:16px;margin-top:20px}
+  .swbtn{width:54px;height:54px;border-radius:50%;border:1px solid var(--line);background:var(--panel2);
+    font-size:21px;cursor:pointer;transition:.15s;display:flex;align-items:center;justify-content:center;line-height:1}
+  .swbtn:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+  .swbtn.pass{color:var(--con)} .swbtn.pass:hover:not(:disabled){border-color:var(--con);background:rgba(242,132,107,.12)}
+  .swbtn.like{color:var(--pro)} .swbtn.like:hover:not(:disabled){border-color:var(--pro);background:rgba(87,207,133,.12)}
+  .swbtn.super{color:var(--teal)} .swbtn.super:hover:not(:disabled){border-color:var(--teal);background:rgba(52,209,191,.12)}
+  .swbtn:disabled{opacity:.35;cursor:not-allowed}
+  .swtip{text-align:center;font-family:var(--mono);font-size:11px;color:var(--muted2);margin-top:12px}
+  .deckdone{text-align:center;padding:40px 18px;background:var(--panel);border:1px solid var(--line);border-radius:16px}
+  .deckdone p{font-family:var(--mono);color:var(--muted);font-size:13.5px;margin:0 0 16px;line-height:1.5}
+  .deckdone .dd-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(18px);opacity:0;
+    background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 16px;
+    font-family:var(--mono);font-size:12.5px;color:var(--ink);transition:.25s;pointer-events:none;z-index:30}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  .voters{margin-top:9px;display:flex;flex-wrap:wrap;gap:5px;min-height:8px}
+  .chip{font-family:var(--mono);font-size:10.5px;color:var(--muted);background:var(--panel2);border:1px solid var(--line);border-radius:20px;padding:2px 8px}
+  .chip .rk{color:var(--pro);font-weight:700} .chip.me{border-color:rgba(246,169,53,.4)}
+  .chip.sup{border-color:rgba(52,209,191,.4)} .chip.sup .rk{color:var(--teal)}
+
+  .foot{margin-top:26px;padding-top:16px;border-top:1px solid var(--line)}
+  .foot .note{font-family:var(--mono);font-size:11.5px;color:var(--muted2);max-width:70ch;line-height:1.55}
+  .loading{font-family:var(--mono);color:var(--muted);font-size:13px;padding:30px 4px}
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+  <div class="eyebrow"><span class="dot" id="conn"></span>crew server poll · ranked · self-hosted</div>
+  <h1>Like your <span>favorites</span></h1>
+  <p class="sub">Sixteen self-hostable co-op games for 4–6, not story-driven, low-pressure. <b>Like</b> the ones you'd happily play (+1 each), and <b>super-like</b> up to 3 standouts (+3 each). Tap again to undo. Badges: <i class="fa-solid fa-award"></i> Metacritic critic /100, <i class="fa-solid fa-users"></i> Metacritic user /10, <i class="fa-brands fa-steam"></i> Steam player rating (the better signal for this early-access-heavy genre), <i class="fa-solid fa-tag"></i> base-game price in CHF (<b>$</b> ≤25 · <b>$$</b> ≤40 · <b>$$$</b> >40).</p>
+
+  <div class="strip" id="strip"></div>
+
+  <div class="idbar">
+    <label for="nm">Your name</label>
+    <input id="nm" placeholder="type your handle…" autocomplete="off" maxlength="24" />
+    <span class="hint" id="needname" style="display:none"><i class="fa-solid fa-arrow-left"></i> add a name to vote</span>
+  </div>
+
+  <div class="ballot" id="ballot"></div>
+
+  <div class="viewtabs" id="viewtabs">
+    <button class="vtab" id="viewswipe" type="button"><i class="fa-solid fa-layer-group"></i> Swipe</button>
+    <button class="vtab" id="viewlist" type="button"><i class="fa-solid fa-list-ul"></i> List &amp; tally</button>
+  </div>
+
+  <div id="deck"></div>
+  <div id="list"><div class="loading">// loading tally…</div></div>
+
+  <div class="foot">
+    <p class="note">Self-hosted. Ballots live in votes.json on your server — names and picks are visible to everyone who opens this page. A "—" on the critic badge means no Metacritic critic score yet (too few critic reviews — common in early access); a missing user badge means no user score yet. Lean on the Steam rating in those cases. Live-refreshes every few seconds.</p>
+  </div>
+</div>
+
+<script>
+const LIKE_PT=1, SUPER_PT=3, MAX_SUPERS=3;  // like +1, super-like +3, max 3 supers/voter
+const GAMES = [
+  { id:"conan", name:"Conan Exiles", mc:68, user:5.5, steam:"Mostly Positive", mcurl:"https://www.metacritic.com/game/conan-exiles/", price:39.50, url:"https://store.steampowered.com/app/440900/",
+    tag:"survival · build · explore · combat · mounts",
+    pros:["Visceral melee + deep base-building","Huge Steam Workshop mod scene","Native Linux server + Nitrado","Low-pressure sandbox by default"],
+    cons:["UI/combat feel a bit dated","Brutal/mature tone not for everyone"] },
+  { id:"7dtd", name:"7 Days to Die", mc:null, user:8.2, steam:"Very Positive", mcurl:"https://www.metacritic.com/game/7-days-to-die/", price:49.99, url:"https://store.steampowered.com/app/251570/",
+    tag:"all four flavors · craft & drive vehicles",
+    pros:["Hits every flavor incl. vehicle mechanics","Horde nights = combat on tap","Massive overhaul mods (Darkness Falls…)","Difficulty fully tunable"],
+    cons:["Another zombie survival (PZ overlap)","Visuals still a little rough"] },
+  { id:"ark", name:"ARK: Survival Ascended", mc:null, user:3.5, steam:"Mixed", mcurl:"https://www.metacritic.com/game/ark-survival-ascended/", price:49.99, url:"https://store.steampowered.com/app/2399830/",
+    tag:"tame · build · explore · heavy combat",
+    pros:["Biggest mod + custom-map ecosystem","Nitrado is the official host","Tame & ride creatures (your 'driving')"],
+    cons:["Grindy and time-hungry","Hardware-heavy server; least casual"] },
+  { id:"rust", name:"Rust", mc:69, user:6.6, steam:"Very Positive", mcurl:"https://www.metacritic.com/game/rust/", price:35.99, url:"https://store.steampowered.com/app/252490/",
+    tag:"survival · build · real vehicle mechanics · PvP",
+    pros:["Best-looking + top-tier self-host","Biggest plugin scene (uMod)","Endless combat for the fighters"],
+    cons:["Built for brutal PvP + wipes","Needs tuning to feel low-pressure"] },
+  { id:"vrising", name:"V Rising", mc:83, user:6.9, steam:"Very Positive", mcurl:"https://www.metacritic.com/game/v-rising/", price:38.99, url:"https://store.steampowered.com/app/1604030/",
+    tag:"action combat · castle build · explore",
+    pros:["Best-in-class action + boss fights","Slick castle building; decent mods","Reviewed ~low-80s; self-host + Nitrado"],
+    cons:["Windows server (Linux via Wine)","More combat-progression than open sandbox"] },
+  { id:"enshrouded", name:"Enshrouded", mc:null, user:null, steam:"Very Positive", price:32.99, url:"https://store.steampowered.com/app/1203620/",
+    tag:"survival · build · explore (prettiest)",
+    pros:["Best-looking + most approachable","Genuinely relaxed, do-your-own-thing","Native Linux server + Nitrado"],
+    cons:["Thinner modding scene","No vehicles; combat isn't the star"] },
+  { id:"icarus", name:"Icarus", mc:67, user:5.6, steam:"Mostly Positive", mcurl:"https://www.metacritic.com/game/icarus/", price:38.99, url:"https://store.steampowered.com/app/1149460/",
+    tag:"photoreal survival · hunt · vehicles · talents",
+    pros:["Most realistic look on the list","Vehicles + deep talent trees","Self-hosted dedicated server"],
+    cons:["Mission roots can feel restrictive","Combat is functional, not thrilling"] },
+  { id:"motortown", name:"Motor Town (driving night)", mc:null, user:null, steam:"Very Positive", price:21.99, url:"https://store.steampowered.com/app/1369670/",
+    tag:"pure driving & jobs · companion server",
+    pros:["Zero-combat, zero-grind palate cleanser","Realistic; great 2nd server for variety","Self-hostable"],
+    cons:["Single-flavor (no survival/combat)","Windows server build; niche"] },
+  { id:"satisfactory", name:"Satisfactory", mc:91, user:8.8, steam:"Overwhelmingly Positive", mcurl:"https://www.metacritic.com/game/satisfactory/", price:44.50, url:"https://store.steampowered.com/app/526870/",
+    tag:"factory automation · build · explore",
+    pros:["Highest-rated here (MC 91 / 97% Steam)","Native Linux dedicated server","Bottomless build & automation depth","Relaxed — no forced loop"],
+    cons:["Combat barely exists","Pure factory focus won't grab all"] },
+  { id:"valheim", name:"Valheim", mc:null, user:null, steam:"Very Positive", price:20.29, url:"https://store.steampowered.com/app/892970/",
+    tag:"viking survival · build · sail · explore",
+    pros:["Beloved — Overwhelmingly Positive","Native Linux server + Nitrado","Survival, sailing, building + bosses","Great drop-in/out group game"],
+    cons:["Stylized, not photoreal","No final Metacritic (early access)"] },
+  { id:"abiotic", name:"Abiotic Factor", mc:88, user:8.3, steam:"Overwhelmingly Positive", mcurl:"https://www.metacritic.com/game/abiotic-factor/", price:38.99, url:"https://store.steampowered.com/app/427410/",
+    tag:"half-life-style co-op survival · craft",
+    pros:["Overwhelmingly Positive (96%, 57k+)","Polished dedicated server tool","Combat + craft + dimension-hopping","Dry humor, light on story"],
+    cons:["Server Windows-first (Linux via Wine)","Early access, still growing"] },
+  { id:"sotf", name:"Sons of the Forest", mc:86, user:7.2, steam:"Very Positive", mcurl:"https://www.metacritic.com/game/sons-of-the-forest/", price:33.50, url:"https://store.steampowered.com/app/1326470/",
+    tag:"forest survival horror · build · combat",
+    pros:["Overwhelmingly Positive; MC 78","Official server (Linux via Docker)","Realistic world + tense combat","Freeform: build or explore at will"],
+    cons:["Has a loose story thread","Occasional technical rough edges"] },
+  { id:"soulmask", name:"Soulmask", mc:null, user:null, steam:"Mostly Positive", price:32.99, url:"https://store.steampowered.com/app/2646460/",
+    tag:"tribe survival · tame · automate · combat",
+    pros:["Deep tribe survival + base automation","Steam Workshop modkits","Native dedicated server","Taming, mask powers, big world"],
+    cons:["Only 'Mostly Positive' overall","Early access; some grind"] },
+  { id:"bellwright", name:"Bellwright", mc:null, user:null, steam:"Very Positive", price:33.50, url:"https://store.steampowered.com/app/1812450/",
+    tag:"medieval settlement · recruit · build · combat",
+    pros:["Settlement-building + real combat","Dedicated co-op server","Recruit & command NPC villagers","Sandbox at your own pace"],
+    cons:["Only 'Mostly Positive' (79%)","Early access; long roadmap"] },
+  { id:"palworld", name:"Palworld", mc:87, user:7.1, steam:"Very Positive", mcurl:"https://www.metacritic.com/game/palworld/", price:33.50, url:"https://store.steampowered.com/app/1623730/",
+    tag:"creature-collecting survival · build · automate · combat",
+    pros:["Survival + base automation staffed by 'Pals'","Guns, taming, building — hits many flavors","Native Linux dedicated server (up to 32)","Casual-friendly, do-your-own-thing"],
+    cons:["Stylized/cartoony, not photoreal","Early access; content still landing"] },
+  { id:"moria", name:"LotR: Return to Moria", mc:59, user:6.8, steam:"Very Positive", mcurl:"https://www.metacritic.com/game/the-lord-of-the-rings-return-to-moria/", price:33.50, url:"https://store.steampowered.com/app/2933130/",
+    tag:"dwarven survival · mine · build · combat",
+    pros:["Mine/build/craft through Moria, up to 8","Relaxed co-op loop, cozy Tolkien vibe","Dedicated server support","Full release, not early access"],
+    cons:["Combat is serviceable, not deep","'Mostly Positive'; can get repetitive"] },
+];
+const NAME = id => GAMES.find(g=>g.id===id)?.name || id;
+const $ = s => document.querySelector(s);
+
+function lget(k){ try{return localStorage.getItem(k);}catch(e){return null;} }
+function lset(k,v){ try{localStorage.setItem(k,v);}catch(e){} }
+
+let myLikes=[], mySupers=[], scores={}, supers={}, likers={}, ballots=0, online=true;
+let holdLocalUntil=0;  // briefly trust local picks over the poll right after a change
+
+// Identity = the normalized name, so the same name shares one ballot across
+// devices (swipe on desktop, continue on mobile). Friendly-crew poll: matched
+// by name, no auth — re-using a name means re-using that ballot on purpose.
+function voterKey(){ return $("#nm").value.trim().toLowerCase().slice(0,64); }
+
+async function apiVotes(){
+  const r=await fetch("/api/votes?voter="+encodeURIComponent(voterKey()),{cache:"no-store"});
+  if(!r.ok) throw new Error("http "+r.status);
+  return r.json();
+}
+async function apiSave(name,likes,supers){
+  await fetch("/api/vote",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({voter:voterKey(),name,likes,supers})});
+}
+async function apiClear(){
+  await fetch("/api/clear",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({voter:voterKey()})});
+}
+
+async function loadVotes(){
+  try{
+    const data=await apiVotes(); online=true;
+    if(Date.now()>=holdLocalUntil){          // else keep the just-made local picks
+      if(data.me){                            // adopt this name's ballot (cross-device)
+        myLikes=Array.isArray(data.me.likes)?data.me.likes.slice():[];
+        mySupers=Array.isArray(data.me.supers)?data.me.supers.slice():[];
+      } else { myLikes=[]; mySupers=[]; }     // unknown name -> fresh ballot
+    }
+    const sc={},sv={},lk={};
+    for(const g of GAMES){ sc[g.id]=0; sv[g.id]=0; lk[g.id]=[]; }
+    let n=0;
+    for(const b of (data.ballots||[])){
+      const likes=Array.isArray(b.likes)?b.likes:[], sups=Array.isArray(b.supers)?b.supers:[];
+      if(!likes.length && !sups.length) continue; n++;
+      likes.forEach(gid=>{ if(sc[gid]===undefined) return; sc[gid]+=LIKE_PT; lk[gid].push({name:b.name||"anon",type:"like"}); });
+      sups.forEach(gid=>{ if(sc[gid]===undefined) return; sc[gid]+=SUPER_PT; sv[gid]++; lk[gid].push({name:b.name||"anon",type:"super"}); });
+    }
+    scores=sc; supers=sv; likers=lk; ballots=n;
+  }catch(e){ online=false; }
+}
+
+async function persist(){
+  const nm=$("#nm").value.trim();
+  try{ if(myLikes.length||mySupers.length) await apiSave(nm,myLikes,mySupers); else await apiClear(); online=true; }
+  catch(e){ online=false; }
+  await refresh();
+}
+function react(gid,type){
+  const nm=$("#nm").value.trim();
+  if(!nm){ $("#nm").classList.add("need"); $("#needname").style.display="inline"; $("#nm").focus(); return; }
+  lset("voterName",nm);
+  const li=myLikes.indexOf(gid), si=mySupers.indexOf(gid);
+  if(type==="like"){
+    if(li>=0){ myLikes.splice(li,1); }                       // toggle off
+    else { if(si>=0) mySupers.splice(si,1); myLikes.push(gid); }  // like (drop any super)
+  } else {                                                    // super
+    if(si>=0){ mySupers.splice(si,1); }                       // toggle off
+    else {
+      if(mySupers.length>=MAX_SUPERS) return;                 // budget spent
+      if(li>=0) myLikes.splice(li,1);
+      mySupers.push(gid);
+    }
+  }
+  holdLocalUntil=Date.now()+2500;
+  persist();
+}
+function clearAll(){ myLikes=[]; mySupers=[]; holdLocalUntil=Date.now()+2500; persist(); }
+function esc(s){return String(s).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));}
+// Price tier from the Swiss (CHF) base-game Steam price. Cheaper = "hi" (green),
+// so the tint reads as value, not quality. $ ≤25, $$ ≤40, $$$ >40.
+function priceCount(chf){ return chf<=25?1:chf<=40?2:3; }
+function priceTier(chf){ return ['','hi','mid','lo'][priceCount(chf)]; }
+function priceBadge(g){
+  if (g.price == null) return '';
+  const signs = '$'.repeat(priceCount(g.price));
+  return `<span class="rate ${priceTier(g.price)}" title="Base game ~CHF ${g.price.toFixed(2)} on Steam (Switzerland)"><i class="fa-solid fa-tag"></i>${signs}</span>`;
+}
+function mcClass(mc){ return mc==null?'na':mc>=75?'hi':mc>=50?'mid':'lo'; }
+function userClass(u){ return u==null?'na':u>=7.5?'hi':u>=5?'mid':'lo'; }  // Metacritic user score, 0–10
+// Metacritic critic + user badges. Each is shown only when its score exists,
+// and links to the game's Metacritic page when g.mcurl is set.
+function mcBadges(g){
+  const badge = (cls, icon, val, title) => g.mcurl
+    ? `<a class="rate ${cls}" href="${g.mcurl}" target="_blank" rel="noopener" title="${title}"><i class="${icon}"></i>${val}</a>`
+    : `<span class="rate ${cls}" title="${title}"><i class="${icon}"></i>${val}</span>`;
+  let out = '';
+  if (g.mc != null) out += badge(mcClass(g.mc), 'fa-solid fa-award', g.mc, 'Metacritic critic score');
+  if (g.user != null) out += badge(userClass(g.user), 'fa-solid fa-users', g.user.toFixed(1), 'Metacritic user score / 10');
+  return out;
+}
+function steamTier(s){ return /Overwhelming|Very Positive/.test(s)?'hi':/Positive/.test(s)?'mid':/Mixed/.test(s)?'lo':'na'; }
+
+function renderSummary(){
+  const nL=myLikes.length, nS=mySupers.length, has=nL||nS;
+  $("#ballot").innerHTML=`<span class="bl">your picks</span>`+
+    (has
+      ? `<span class="sum"><i class="fa-solid fa-heart"></i> ${nL} like${nL===1?'':'s'} · <i class="fa-solid fa-star"></i> ${nS}/${MAX_SUPERS} super</span><button class="clr" id="clrb">clear all</button>`
+      : `<span class="sum empty">tap <i class="fa-solid fa-heart"></i> Like or <i class="fa-solid fa-star"></i> Super on any game below</span>`);
+  const c=$("#clrb"); if(c) c.onclick=clearAll;
+}
+
+function tallyMeta(){
+  const max=Math.max(0,...Object.values(scores));
+  const leaders = max>0 ? GAMES.map(g=>g.id).filter(id=>(scores[id]||0)===max) : [];
+  return {max, leaders};
+}
+
+function renderStrip(){
+  const {max,leaders}=tallyMeta();
+  $("#conn").classList.toggle("off",!online);
+  $("#strip").innerHTML =
+    `<div class="stat"><b>${ballots}</b> voter${ballots===1?"":"s"}</div>`+
+    `<div class="stat">like <b>+1</b> · super <b>+3</b></div>`+
+    `<div class="stat">your supers: <b>${mySupers.length}/${MAX_SUPERS}</b></div>`+
+    `<div class="stat"><span class="live ${online?'':'off'}">● ${online?'live tally':'offline'}</span></div>`+
+    (leaders.length&&max>0?`<div class="stat">leading: <b>${leaders.map(NAME).join(", ")}</b> · ${max}pts</div>`:``);
+}
+
+function renderList(){
+  const {max}=tallyMeta();
+  const order=[...GAMES].sort((a,b)=>(scores[b.id]||0)-(scores[a.id]||0)||GAMES.indexOf(a)-GAMES.indexOf(b));
+  $("#list").innerHTML=order.map(g=>{
+    const s=scores[g.id]||0, sv=supers[g.id]||0;
+    const pct=max>0?Math.round(s/max*100):0;
+    const mine=myLikes.includes(g.id)?'like':mySupers.includes(g.id)?'super':'';
+    const isLead=max>0&&(scores[g.id]||0)===max, capReached=mySupers.length>=MAX_SUPERS&&mine!=='super';
+    const chips=(likers[g.id]||[]).slice().sort((a,b)=>(b.type==='super')-(a.type==='super'))
+      .map(v=>`<span class="chip ${v.type==='super'?'sup':''}"><span class="rk">${v.type==='super'?'<i class="fa-solid fa-star"></i>':'<i class="fa-solid fa-heart"></i>'}</span> ${esc(v.name)}</span>`).join("");
+    return `<div class="card ${mine?'mine':''} ${isLead?'leader':''}">
+      <div class="top">
+        <span class="led"></span>
+        <span class="name">${g.name}</span>
+        ${mcBadges(g)}
+        <a class="rate ${steamTier(g.steam)}" href="${g.url}" target="_blank" rel="noopener" title="Steam player rating — open store page"><i class="fa-brands fa-steam"></i>${g.steam}</a>
+        ${priceBadge(g)}
+        ${isLead?'<span class="badge lead rgt">leading</span>':''}
+        <span class="tag">${g.tag}</span>
+      </div>
+      <ul class="pc">
+        ${g.pros.map(p=>`<li class="pro"><span class="m">+</span>${esc(p)}</li>`).join("")}
+        ${g.cons.map(p=>`<li class="con"><span class="m">–</span>${esc(p)}</li>`).join("")}
+      </ul>
+      <div class="row">
+        <div class="meter"><div class="fill" style="width:${pct}%"></div>
+          <div class="mval">${s} pts <span class="firsts">${sv} <i class="fa-solid fa-star"></i></span></div></div>
+        <div class="actions">
+          <button class="btn mini ${mine==='like'?'liked':''}" data-like="${g.id}"><i class="fa-solid fa-heart"></i> ${mine==='like'?'Liked':'Like'}</button>
+          <button class="btn mini ${mine==='super'?'supered':''}" data-super="${g.id}" ${capReached?'disabled':''} title="${capReached?'super-like budget spent':'super-like'}"><i class="fa-solid fa-star"></i> Super</button>
+        </div>
+      </div>
+      <div class="voters">${chips}</div>
+    </div>`;
+  }).join("");
+  document.querySelectorAll(".btn[data-like]").forEach(b=>b.onclick=()=>react(b.dataset.like,"like"));
+  document.querySelectorAll(".btn[data-super]").forEach(b=>b.onclick=()=>react(b.dataset.super,"super"));
+}
+
+function render(){
+  renderStrip();
+  renderSummary();
+  renderList();
+  $("#viewswipe").classList.toggle("on",view==="swipe");
+  $("#viewlist").classList.toggle("on",view==="list");
+  $("#deck").style.display = view==="swipe"?"block":"none";
+  $("#list").style.display = view==="list"?"block":"none";
+  if(view==="swipe" && !animating && !drag && deckShownI!==deckI) renderDeck();
+}
+
+/* ---------- swipe deck ---------- */
+let view = (function(){ const s=lget("view"); if(s==="swipe"||s==="list") return s;
+  return (window.matchMedia && matchMedia("(pointer:coarse)").matches) ? "swipe" : "list"; })();
+let deckI=0, deckShownI=-1, animating=false, drag=null, toastT=null;
+
+function setView(v){ view=v; lset("view",v); render(); }
+function myState(gid){ return myLikes.includes(gid)?"like":mySupers.includes(gid)?"super":""; }
+
+function needName(){
+  const nm=$("#nm").value.trim();
+  if(!nm){ $("#nm").classList.add("need"); $("#needname").style.display="inline"; $("#nm").focus(); toast("Add your name first"); return true; }
+  lset("voterName",nm); return false;
+}
+
+function toast(msg){
+  let t=$("#toast");
+  if(!t){ t=document.createElement("div"); t.id="toast"; t.className="toast"; document.body.appendChild(t); }
+  t.textContent=msg; t.classList.add("show");
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),1800);
+}
+
+function renderDeck(){
+  const deck=$("#deck"); deckShownI=deckI;
+  const g=GAMES[deckI];
+  if(!g){
+    deck.innerHTML=`<div class="deckdone">
+      <p>That's all ${GAMES.length}. Your picks are in — <b><i class="fa-solid fa-heart"></i> ${myLikes.length}</b> liked · <b><i class="fa-solid fa-star"></i> ${mySupers.length}</b> super-liked.<br>Switch to the tally to see where the crew stands.</p>
+      <div class="dd-actions">
+        <button class="btn" id="againbtn" type="button"><i class="fa-solid fa-rotate-left"></i> swipe again</button>
+        <button class="btn on" id="resultsbtn" type="button">see results <i class="fa-solid fa-arrow-right"></i></button>
+      </div></div>`;
+    $("#againbtn").onclick=()=>{ deckI=0; renderDeck(); };
+    $("#resultsbtn").onclick=()=>setView("list");
+    return;
+  }
+  const st=myState(g.id), supersLeft=MAX_SUPERS-mySupers.length;
+  deck.innerHTML=`
+    <div class="swipe-progress">
+      <span>game <b>${deckI+1}</b> / ${GAMES.length}</span>
+      <span><i class="fa-solid fa-star"></i> <b>${supersLeft}</b> super${supersLeft===1?'':'s'} left</span>
+      ${st?`<span>current: <b>${st==='super'?'<i class="fa-solid fa-star"></i> super-liked':'<i class="fa-solid fa-heart"></i> liked'}</b></span>`:''}
+    </div>
+    <div class="deckstack">
+      <div class="swcard" id="swtop">
+        <span class="swhint like">Like</span>
+        <span class="swhint pass">Pass</span>
+        <span class="swhint super">Super</span>
+        <div class="top">
+          <span class="led"></span>
+          <span class="name">${g.name}</span>
+          ${mcBadges(g)}
+          <a class="rate ${steamTier(g.steam)}" href="${g.url}" target="_blank" rel="noopener" title="Steam player rating — open store page"><i class="fa-brands fa-steam"></i>${g.steam}</a>
+          ${priceBadge(g)}
+          <span class="tag">${g.tag}</span>
+        </div>
+        <ul class="pc">
+          ${g.pros.map(p=>`<li class="pro"><span class="m">+</span>${esc(p)}</li>`).join("")}
+          ${g.cons.map(p=>`<li class="con"><span class="m">–</span>${esc(p)}</li>`).join("")}
+        </ul>
+      </div>
+    </div>
+    <div class="swactions">
+      <button class="swbtn pass" id="sw-pass" type="button" title="Pass — neutral (swipe left)"><i class="fa-solid fa-xmark"></i></button>
+      <button class="swbtn like" id="sw-like" type="button" title="Like +1 (swipe right)"><i class="fa-solid fa-heart"></i></button>
+      <button class="swbtn super" id="sw-super" type="button" title="Super-like +3 (swipe up)" ${supersLeft<=0&&st!=='super'?'disabled':''}><i class="fa-solid fa-star"></i></button>
+    </div>
+    <div class="swtip">drag the card · <i class="fa-solid fa-arrow-right"></i> like · <i class="fa-solid fa-arrow-left"></i> pass · <i class="fa-solid fa-arrow-up"></i> super · or use your <i class="fa-solid fa-arrow-left"></i> <i class="fa-solid fa-arrow-up"></i> <i class="fa-solid fa-arrow-right"></i> keys</div>`;
+  $("#sw-pass").onclick=()=>decide("pass");
+  $("#sw-like").onclick=()=>decide("like");
+  $("#sw-super").onclick=()=>decide("super");
+  wireDrag($("#swtop"));
+}
+
+function wireDrag(el){
+  if(!el) return;
+  let sx=0, sy=0, dx=0, dy=0;
+  const hints={ like:el.querySelector(".swhint.like"), pass:el.querySelector(".swhint.pass"), sup:el.querySelector(".swhint.super") };
+  el.addEventListener("pointerdown",e=>{
+    if(animating || (e.target.closest && e.target.closest("a"))) return;
+    if(needName()) return;
+    drag={}; sx=e.clientX; sy=e.clientY; dx=dy=0;
+    el.style.transition="none";
+    try{ el.setPointerCapture(e.pointerId); }catch(_){}
+  });
+  el.addEventListener("pointermove",e=>{
+    if(!drag) return;
+    dx=e.clientX-sx; dy=e.clientY-sy;
+    el.style.transform=`translate(${dx}px,${dy}px) rotate(${dx/18}deg)`;
+    const up = dy<-40 && (-dy)>Math.abs(dx);
+    hints.sup.style.opacity  = up?Math.min(1,(-dy-40)/70):0;
+    hints.like.style.opacity = (!up&&dx>0)?Math.min(1,dx/90):0;
+    hints.pass.style.opacity = (!up&&dx<0)?Math.min(1,-dx/90):0;
+  });
+  const end=()=>{
+    if(!drag) return; drag=null;
+    const TH=95, TU=95; let decision=null;
+    if(dy<-TU && (-dy)>Math.abs(dx)) decision="super";
+    else if(dx>TH) decision="like";
+    else if(dx<-TH) decision="pass";
+    if(decision){ decide(decision); }
+    else { el.style.transition="transform .25s ease"; el.style.transform="";
+      hints.like.style.opacity=hints.pass.style.opacity=hints.sup.style.opacity=0; }
+  };
+  el.addEventListener("pointerup",end);
+  el.addEventListener("pointercancel",end);
+}
+
+function decide(decision){
+  const el=$("#swtop"), g=GAMES[deckI];
+  if(!el || !g || animating) return;
+  if(needName()) return;
+  if(decision==="super" && !mySupers.includes(g.id) && mySupers.length>=MAX_SUPERS){
+    decision="like"; toast("Super-like budget spent — counted as a like");
+  }
+  animating=true;
+  const off = decision==="like" ? "translate(140%,-30px) rotate(22deg)"
+            : decision==="pass" ? "translate(-140%,-30px) rotate(-22deg)"
+            : "translate(0,-160%) rotate(-4deg)";
+  el.style.transition="transform .34s ease-out, opacity .34s ease-out";
+  el.style.opacity="0"; el.style.transform=off;
+  let done=false;
+  const finish=()=>{ if(done) return; done=true;
+    commitState(g.id, decision);
+    deckI++; animating=false;
+    renderStrip(); renderSummary(); renderList();
+    persistQuiet();
+    renderDeck();
+  };
+  el.addEventListener("transitionend",finish,{once:true});
+  setTimeout(finish,420);
+}
+
+function commitState(gid, decision){
+  myLikes=myLikes.filter(x=>x!==gid);
+  mySupers=mySupers.filter(x=>x!==gid);
+  if(decision==="like") myLikes.push(gid);
+  else if(decision==="super") mySupers.push(gid);
+  // "pass" => neutral, in neither list
+  holdLocalUntil=Date.now()+2500;
+}
+
+async function persistQuiet(){
+  const nm=$("#nm").value.trim();
+  try{ if(myLikes.length||mySupers.length) await apiSave(nm,myLikes,mySupers); else await apiClear(); online=true; }
+  catch(e){ online=false; }
+}
+
+async function refresh(){ await loadVotes(); render(); }
+
+(async function init(){
+  $("#nm").value = lget("voterName") || "";
+  $("#nm").addEventListener("input",()=>{ if($("#nm").value.trim()){ $("#nm").classList.remove("need"); $("#needname").style.display="none"; }});
+  $("#nm").addEventListener("change", async ()=>{
+    const nm=$("#nm").value.trim(); if(!nm) return;
+    lset("voterName",nm);
+    holdLocalUntil=0;   // this name's server ballot is now the source of truth
+    deckShownI=-1;      // rebuild the deck card for the loaded identity
+    await refresh();    // pull this name's existing likes/supers (cross-device)
+  });
+  $("#viewswipe").onclick=()=>setView("swipe");
+  $("#viewlist").onclick=()=>setView("list");
+  document.addEventListener("keydown",e=>{
+    if(view!=="swipe" || animating) return;
+    if(document.activeElement && document.activeElement.tagName==="INPUT") return;
+    if(e.key==="ArrowLeft"){ decide("pass"); e.preventDefault(); }
+    else if(e.key==="ArrowRight"){ decide("like"); e.preventDefault(); }
+    else if(e.key==="ArrowUp"){ decide("super"); e.preventDefault(); }
+  });
+  await refresh();
+  setInterval(refresh, 4000);
+})();
+</script>
+</html>

@@ -1,0 +1,19 @@
+services:
+  game-vote:
+    build: .
+    ports:
+      - "8787:8787"
+    volumes:
+      # Mount the whole project (read-only) rather than individual files:
+      # index.html is re-read on every request, so edits show up on refresh
+      # with no restart. (A single-file mount breaks when an editor replaces
+      # the file via atomic rename — the mount keeps the old inode.)
+      # Note: server.py still needs `docker compose restart` — Python caches
+      # the imported module.
+      - ./:/app:ro
+      # Persist ballots across restarts. Reset the poll with:
+      #   docker compose down -v
+      - votes:/data
+
+volumes:
+  votes:
